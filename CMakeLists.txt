@@ -4,15 +4,15 @@
 # Distributed under the Boost Software License, Version 1.0.
 # (See accompanying file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #
-option(BOOST_UT_DISABLE_MODULE "Disable ut module" OFF)
+option(BOOST_UT_DISABLE_MODULE "Disable ut module" ON)
 
 if(NOT BOOST_UT_DISABLE_MODULE)
-cmake_minimum_required(VERSION 4.0.0)
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "a9e1cf81-9932-4810-974b-6eccaf14e457")
-set(CMAKE_CXX_MODULE_STD 1)
+  cmake_minimum_required(VERSION 4.0.0)
+  set(CMAKE_CXX_STANDARD 23)
+  set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "a9e1cf81-9932-4810-974b-6eccaf14e457")
+  set(CMAKE_CXX_MODULE_STD 1)
 else()
-cmake_minimum_required(VERSION 3.21...4.0)
+  cmake_minimum_required(VERSION 3.25...4.0)
 endif()
 project(
   ut
@@ -22,7 +22,7 @@ project(
 
 if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD
-      17
+      20
       CACHE STRING "Default value for CXX_STANDARD property of targets."
   )
   option(CMAKE_CXX_STANDARD_REQUIRED "Default value for CXX_STANDARD_REQUIRED property of targets." YES)
@@ -48,11 +48,7 @@ if(BOOST_UT_ENABLE_INSTALL)
     include(cmake/CPM.cmake)
 
     # PackageProject.cmake will be used to make our target installable
-    CPMAddPackage(
-      NAME PackageProject.cmake
-      GITHUB_REPOSITORY TheLartians/PackageProject.cmake
-      VERSION 1.10.0
-    )
+    cpmaddpackage(NAME PackageProject.cmake GITHUB_REPOSITORY TheLartians/PackageProject.cmake VERSION 1.13.0)
   else()
     include(cmake/PackageProject.cmake)
   endif()
@@ -61,7 +57,7 @@ endif()
 add_library(ut INTERFACE)
 
 if(NOT BOOST_UT_DISABLE_MODULE)
-add_library(ut_module)
+  add_library(ut_module)
 endif()
 
 if(NOT DEFINED INCLUDE_INSTALL_DIR)
@@ -72,7 +68,7 @@ target_include_directories(ut INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/
 target_compile_features(ut INTERFACE cxx_std_20)
 
 if(NOT BOOST_UT_DISABLE_MODULE)
-target_compile_features(ut_module INTERFACE cxx_std_23)
+  target_compile_features(ut_module INTERFACE cxx_std_23)
 endif()
 
 if(BOOST_UT_USE_WARNINGS_AS_ERORS)
@@ -113,15 +109,13 @@ endif()
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-install(
-  FILES include/boost/ut.hpp include/boost/ut.cppm
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/boost
-)
+install(FILES include/boost/ut.hpp include/boost/ut.cppm DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/boost)
 
 install(
   TARGETS ut
   EXPORT ut_Targets
-  INCLUDES DESTINATION include
+  INCLUDES
+  DESTINATION include
 )
 install(
   EXPORT ut_Targets
@@ -133,13 +127,9 @@ install(
 write_basic_package_version_file(
   "utConfigVersion.cmake"
   VERSION ${PROJECT_VERSION}
-  COMPATIBILITY SameMajorVersion
-  ARCH_INDEPENDENT
+  COMPATIBILITY SameMajorVersion ARCH_INDEPENDENT
 )
-install(
-  FILES "${PROJECT_BINARY_DIR}/utConfigVersion.cmake"
-  DESTINATION lib/cmake/ut
-)
+install(FILES "${PROJECT_BINARY_DIR}/utConfigVersion.cmake" DESTINATION lib/cmake/ut)
 
 if(EMSCRIPTEN)
   set(CMAKE_EXECUTABLE_SUFFIX ".js")
@@ -149,15 +139,22 @@ endif()
 
 if(BOOST_UT_ENABLE_INSTALL)
   # Create target Boost::ut and install target
-  packageProject(
-    NAME ${PROJECT_NAME}
-    VERSION ${PROJECT_VERSION}
-    NAMESPACE Boost
-    BINARY_DIR ${PROJECT_BINARY_DIR}
-    INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include
-    INCLUDE_DESTINATION ${INCLUDE_INSTALL_DIR}
+  packageproject(
+    NAME
+    ${PROJECT_NAME}
+    VERSION
+    ${PROJECT_VERSION}
+    NAMESPACE
+    Boost
+    BINARY_DIR
+    ${PROJECT_BINARY_DIR}
+    INCLUDE_DIR
+    ${PROJECT_SOURCE_DIR}/include
+    INCLUDE_DESTINATION
+    ${INCLUDE_INSTALL_DIR}
     # XXX variant: DISABLE_VERSION_SUFFIX YES
-    COMPATIBILITY SameMajorVersion
+    COMPATIBILITY
+    SameMajorVersion
     # Note: only if needed i.e. DEPENDENCIES "fmt 7.1.3; span"
   )
 endif()
