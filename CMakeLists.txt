@@ -7,12 +7,12 @@
 option(BOOST_UT_DISABLE_MODULE "Disable ut module" ON)
 
 if(NOT BOOST_UT_DISABLE_MODULE)
-cmake_minimum_required(VERSION 4.0.0)
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "a9e1cf81-9932-4810-974b-6eccaf14e457")
-set(CMAKE_CXX_MODULE_STD 1)
+  cmake_minimum_required(VERSION 4.0.0)
+  set(CMAKE_CXX_STANDARD 23)
+  set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "a9e1cf81-9932-4810-974b-6eccaf14e457")
+  set(CMAKE_CXX_MODULE_STD 1)
 else()
-cmake_minimum_required(VERSION 3.21...3.25)
+  cmake_minimum_required(VERSION 3.25...4.0)
 endif()
 project(
   ut
@@ -37,15 +37,38 @@ option(BOOST_UT_BUILD_EXAMPLES "Build the examples" ${PROJECT_IS_TOP_LEVEL})
 option(BOOST_UT_BUILD_TESTS "Build the tests" ${PROJECT_IS_TOP_LEVEL})
 option(BOOST_UT_ENABLE_INSTALL "Enable install targets" ${PROJECT_IS_TOP_LEVEL})
 option(BOOST_UT_USE_WARNINGS_AS_ERORS "Build the tests" ${PROJECT_IS_TOP_LEVEL})
+option(BOOST_UT_DISABLE_MODULE "Disable ut module" OFF)
+option(BOOST_UT_ALLOW_CPM_USE "Do not reach out across network for CPM" ON)
+
+if(BOOST_UT_ENABLE_INSTALL)
+  if(BOOST_UT_ALLOW_CPM_USE)
+    # ---- Add dependencies via CPM ----
+    # see https://github.com/cpm-cmake/CPM.cmake for more info
+
+    include(cmake/CPM.cmake)
+
+    # PackageProject.cmake will be used to make our target installable
+    cpmaddpackage(NAME PackageProject.cmake GITHUB_REPOSITORY TheLartians/PackageProject.cmake VERSION 1.13.0)
+  else()
+    include(cmake/PackageProject.cmake)
+  endif()
+endif()
 
 add_library(ut INTERFACE)
+
 if(NOT BOOST_UT_DISABLE_MODULE)
-add_library(ut_module)
+  add_library(ut_module)
 endif()
-target_include_directories(ut INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
+
+if(NOT DEFINED INCLUDE_INSTALL_DIR)
+  set(INCLUDE_INSTALL_DIR include/${PROJECT_NAME}-${PROJECT_VERSION}/include)
+endif()
+
+target_include_directories(ut INTERFACE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:${INCLUDE_INSTALL_DIR}>)
 target_compile_features(ut INTERFACE cxx_std_20)
+
 if(NOT BOOST_UT_DISABLE_MODULE)
-target_compile_features(ut_module INTERFACE cxx_std_23)
+  target_compile_features(ut_module INTERFACE cxx_std_23)
 endif()
 
 if(BOOST_UT_USE_WARNINGS_AS_ERORS)
@@ -74,32 +97,25 @@ endif()
 
 if(BOOST_UT_DISABLE_MODULE)
   target_compile_definitions(ut INTERFACE BOOST_UT_DISABLE_MODULE)
-endif()
-
-if(NOT BOOST_UT_DISABLE_MODULE)
-target_sources(ut_module PUBLIC FILE_SET CXX_MODULES FILES include/boost/ut.cppm)
+else()
+  target_sources(ut_module PUBLIC FILE_SET CXX_MODULES FILES include/boost/ut.cppm)
+  add_library(Boost::ut_module ALIAS ut_module)
 endif()
 
 if(NOT TARGET Boost::ut)
   add_library(Boost::ut ALIAS ut)
 endif()
 
-if(NOT BOOST_UT_DISABLE_MODULE)
-add_library(Boost::ut_module ALIAS ut_module)
-endif()
-
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-install(
-  FILES include/boost/ut.hpp include/boost/ut.cppm
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/boost
-)
+install(FILES include/boost/ut.hpp include/boost/ut.cppm DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/boost)
 
 install(
   TARGETS ut
   EXPORT ut_Targets
-  INCLUDES DESTINATION include
+  INCLUDES
+  DESTINATION include
 )
 install(
   EXPORT ut_Targets
@@ -111,18 +127,36 @@ install(
 write_basic_package_version_file(
   "utConfigVersion.cmake"
   VERSION ${PROJECT_VERSION}
-  COMPATIBILITY SameMajorVersion
-  ARCH_INDEPENDENT
+  COMPATIBILITY SameMajorVersion ARCH_INDEPENDENT
 )
-install(
-  FILES "${PROJECT_BINARY_DIR}/utConfigVersion.cmake"
-  DESTINATION lib/cmake/ut
-)
+install(FILES "${PROJECT_BINARY_DIR}/utConfigVersion.cmake" DESTINATION lib/cmake/ut)
 
 if(EMSCRIPTEN)
   set(CMAKE_EXECUTABLE_SUFFIX ".js")
   target_link_options(ut INTERFACE "SHELL:-s ALLOW_MEMORY_GROWTH=1" "SHELL:-s EXIT_RUNTIME=1" -fwasm-exceptions -g)
   target_compile_options(ut INTERFACE -fwasm-exceptions -g)
+endif()
+
+if(BOOST_UT_ENABLE_INSTALL)
+  # Create target Boost::ut and install target
+  packageproject(
+    NAME
+    ${PROJECT_NAME}
+    VERSION
+    ${PROJECT_VERSION}
+    NAMESPACE
+    Boost
+    BINARY_DIR
+    ${PROJECT_BINARY_DIR}
+    INCLUDE_DIR
+    ${PROJECT_SOURCE_DIR}/include
+    INCLUDE_DESTINATION
+    ${INCLUDE_INSTALL_DIR}
+    # XXX variant: DISABLE_VERSION_SUFFIX YES
+    COMPATIBILITY
+    SameMajorVersion
+    # Note: only if needed i.e. DEPENDENCIES "fmt 7.1.3; span"
+  )
 endif()
 
 # Note: now we can use the target Boost::ut
